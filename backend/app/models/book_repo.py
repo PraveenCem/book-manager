@@ -56,7 +56,17 @@ class BookRepository:
         return updated_book
 
     @staticmethod
-    async def filter_books(author:str,min_year:int=None,max_year:int=None,genres:List[str]=None,sort_by:str=None,sort_order:str="asc"):
+    async def filter_books(author:str,
+                           min_year:int=None,
+                           max_year:int=None,
+                           genres:List[str]=None,
+                           sort_by:str=None,
+                           sort_order:str="asc",
+                           limit:int=None,
+                           skip:int=None,
+                           exclude_year:int=None,
+                           exclude_genres:List[str]=None,
+                           search:str=None):
         books = []
 
         query = {}
@@ -77,17 +87,124 @@ class BookRepository:
             query.setdefault("year",{})["$lte"] = max_year
 
         if genres:
-            query["genres"] = {
-                "$in":genres
-            }
+            query.setdefault("genres",{})["$in"] = genres
+
+        if exclude_genres:
+            query.setdefault("genres",{})["$nin"] = exclude_genres
+        
+        if exclude_year:
+            query.setdefault("year",{})["$ne"] =  exclude_year
+
+        if search:
+                query["$or"]= [{
+                    "title":{
+                        "$regex": search,
+                        "$options": "i"
+                    }
+                },
+                {
+                    "author":{
+                        "$regex": search,
+                        "$options":"i"
+                    }
+                },
+                {
+                    "genres":{
+                        "$regex": search,
+                        "$options": "i"
+                    }
+                }
+                ]
+            
+        total = await db.db["books"].count_documents(query)
+        cursor = db.db["books"].find(query)
 
         if sort_by:
             sort_direction = 1 if sort_order == "asc" else -1
+            cursor = cursor.sort(sort_by,sort_direction)
 
-        cursor = db.db["books"].find(query).sort(sort_by,sort_direction)
+        if limit:
+            cursor = cursor.limit(limit)
+
+        if skip:
+            cursor = cursor.skip(skip)
+
+
+        total_pages = (total+limit-1) // limit
 
         async for document in cursor:
             document["_id"] = str(document["_id"])
             books.append(document)
 
-        return books
+        return {
+            "books": books,
+            "total": total,
+            "total_pages": total_pages
+        }
+
+    @staticmethod
+    async def genre_stats():
+        pipeline = [
+            {"$unwind":"$genres"},
+            {
+                "$group":{
+                    "_id": "$genres",
+                    "count": {"$sum":1}
+                }
+            }
+        ]
+
+        result = []
+
+        async for document in db.db["books"].aggregate(pipeline):
+            result.append({
+                "genre": document["_id"],
+                "count": document["count"]
+            })
+
+        return result
+
+
+    @staticmethod
+    async def book_stats():
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_books": {"$sum": 1},
+                    "average_year": {"$avg": "$year"},
+                    "oldest_year": {"$min": "$year"},
+                    "newest_year":{"$max":"$year"}
+                }
+            }
+        ]
+
+        result = []
+
+        async for document in db.db["books"].aggregate(pipeline):
+            result.append({
+                "total_books": document["total_books"],
+                "average_year":document["average_year"],
+                "oldest_year":document["oldest_year"],
+                "newest_year":document["newest_year"]
+            })
+
+        return result
+
+    @staticmethod
+    async def add_review(book_id:str,review_data:dict):
+        result = await db.db["books"].update_one(
+            {"_id": ObjectId(book_id)},
+            {"$push":{"review":review_data}}
+        )
+
+        if result.matched_count == 0:
+            return None
+
+        updated_book = await db.db["books"].find_one(
+            {"_id": ObjectId(book_id)}
+        )
+
+        updated_book["_id"] = str(updated_book["_id"])
+
+        return updated_book
