@@ -3,7 +3,7 @@ from app.core.database import db
 from app.models.book import BookCreate,BookUpdate
 from datetime import datetime
 from typing import List
-
+from fastapi import HTTPException
 
 class BookRepository:
     @staticmethod
@@ -14,6 +14,7 @@ class BookRepository:
             document["_id"] = str(document["_id"])
             books.append(document)
         return books
+    
     @staticmethod
     async def create(book_data:dict):
         result = await db.db['books'].insert_one(book_data)
@@ -23,29 +24,71 @@ class BookRepository:
 
     @staticmethod 
     async def delete(book_id:str):
+        try:
+            object_id = ObjectId(book_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid book id"
+            )
+        
         result = await db.db['books'].delete_one({"_id":ObjectId(book_id)})
-        return result.deleted_count > 0
+        if result.deleted_count == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Book not found"
+            )
+
+        return{
+            "message": "Book deleted succesfully."
+        }
 
     @staticmethod
     async def get_book(book_id:str):
+        try:
+            object_id = ObjectId(book_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid book id"
+            )
+        
         book = await db.db['books'].find_one({
-            "_id": ObjectId(book_id)
+            "_id": object_id
         })
 
-        if book:
-            book["_id"] = str(book["_id"])
+        if book is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Book not found"
+            )
+
+        book["_id"] = str(book["_id"])
 
         return book
 
     @staticmethod
     async def update(book_id:str,book_data:dict):
+
+        try:
+            object_id = ObjectId(book_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid book id"
+            )
+
+
         result = await db.db['books'].update_one(
             {"_id": ObjectId(book_id)},
             {"$set": book_data}
         )
 
         if result.matched_count == 0:
-            return None
+            raise HTTPException(
+                status_code=404,
+                detail="book not found"
+            )
 
         updated_book = await db.db['books'].find_one(
             {"_id": ObjectId(book_id)}
@@ -195,7 +238,7 @@ class BookRepository:
     async def add_review(book_id:str,review_data:dict):
         result = await db.db["books"].update_one(
             {"_id": ObjectId(book_id)},
-            {"$push":{"review":review_data}}
+            {"$push":{"reviews":review_data}}
         )
 
         if result.matched_count == 0:
@@ -208,3 +251,118 @@ class BookRepository:
         updated_book["_id"] = str(updated_book["_id"])
 
         return updated_book
+
+    @staticmethod
+    async def get_reviews(book_id:str):
+
+        try:
+            object_id = ObjectId(book_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid book id"
+            )
+
+        book = await db.db["books"].find_one(
+            {"_id":object_id},
+            {"reviews":1}
+        )
+
+        if book is None:
+            raise HTTPException(
+                status_code=404,
+                detail="book not found"
+            )
+
+        return book.get("reviews",[])
+
+    @staticmethod
+    async def update_review(
+        book_id: str,
+        user: str,
+        review_data: dict
+    ):
+
+        try:
+            object_id = ObjectId(book_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="invalid book id"
+            )
+
+        book = await db.db["books"].find_one(
+                    {"_id": ObjectId(book_id)},
+                    {"reviews": 1}
+                )
+        
+        if book is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Book not found"
+            )
+
+        result = await db.db["books"].update_one(
+            {
+                "_id":object_id,
+                "reviews.user": user
+            },
+            {
+                "$set":{
+                    "reviews.$":review_data
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="review not found"
+            )
+
+        
+
+        return book.get("reviews",[])
+
+
+    @staticmethod
+    async def delete_review(book_id:str,user:str):
+
+        try:
+            object_id = ObjectId(book_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="invalid book id"
+            )
+
+        book = await db.db["books"].find_one(
+            {"_id": object_id},
+            {"reviews": 1}
+        )
+        
+        if book is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Book not found"
+            )
+
+        result = await db.db["books"].update_one(
+            {"_id":object_id},
+            {
+                "$pull":{
+                    "reviews":{
+                        "user":user
+                    }
+                }
+            }
+        )
+
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Review not found"
+            )
+
+  
+        return book.get("reviews",[])

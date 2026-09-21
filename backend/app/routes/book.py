@@ -61,6 +61,27 @@ async def add_review(book_id:str, review:Review):
         review.model_dump()
     )
 
+@router.get("/books/{book_id}/reviews")
+async def get_reviews(book_id:str):
+    return await BookRepository.get_reviews(book_id)
+
+@router.patch("/books/{book_id}/reviews/{user}")
+async def update_review(
+    book_id: str,
+    user: str,
+    review: Review
+):
+
+    return await BookRepository.update_review(
+        book_id,
+        user,
+        review.model_dump()
+    )
+
+@router.delete("/books/{book_id}/reviews/{user}")
+async def delete_review(book_id:str,user:str):
+    return await BookRepository.delete_review(book_id,user)
+
 @router.get("/books/{book_id}")
 async def get_book(book_id:str):
     return await BookRepository.get_book(book_id)
