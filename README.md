@@ -62,3 +62,46 @@ The project focuses on understanding MongoDB querying, filtering, indexing, aggr
                     │     MongoDB     │
                     │    Database     │
                     └─────────────────┘
+
+
+book-manager/
+│
+├── backend/
+│   ├── .env
+│   ├── .gitignore
+│   │
+│   ├── app/
+│   │   ├── main.py
+│   │   │
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   └── database.py
+│   │   │
+│   │   ├── models/
+│   │   │   ├── book.py
+│   │   │   └── book_repo.py
+│   │   │
+│   │   └── routes/
+│   │       └── book.py
+│   │
+│   └── venv/
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── AddBook.jsx
+│   │   │   ├── EditBook.jsx
+│   │   │   ├── DeleteBook.jsx
+│   │   │   ├── BookReviews.jsx
+│   │   │   ├── ReviewList.jsx
+│   │   │   └── AddReview.jsx
+│   │   │
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   └── main.jsx
+│   │
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js
+│
+└── README.md
