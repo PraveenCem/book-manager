@@ -63,7 +63,7 @@ The project focuses on understanding MongoDB querying, filtering, indexing, aggr
                     │    Database     │
                     └─────────────────┘
 
-**Project Structure**
+## Project Structure
 
 
 book-manager/
